@@ -32,7 +32,7 @@ abstract class Mango_Core implements Mango_Interface {
 			if ( self::$_cti === NULL)
 			{
 				// load extension config
-				self::$_cti = Kohana::config('mangoCTI');
+				self::$_cti = Config::get('mangoCTI');
 			}
 
 			while ( isset(self::$_cti[$name]))
@@ -532,7 +532,7 @@ abstract class Mango_Core implements Mango_Interface {
 			}
 			elseif ( $field['type'] === 'has_many' && ! isset($field['model']))
 			{
-				$field['model'] = Inflector::singular($name);
+				$field['model'] = Inflector::singularize($name);
 			}
 		}
 
@@ -541,7 +541,7 @@ abstract class Mango_Core implements Mango_Interface {
 			if ( ! $this->_collection)
 			{
 				// Set the collection name to the plural model name
-				$this->_collection = Inflector::plural($this->_model);
+				$this->_collection = Inflector::pluralize($this->_model);
 			}
 
 			if ( ! isset($this->_fields['_id']))
@@ -557,11 +557,11 @@ abstract class Mango_Core implements Mango_Interface {
 				{
 					$relation['model'] = isset($relation['model']) 
 						 ? $relation['model']
-						 : Inflector::singular($name);
+						 : Inflector::singularize($name);
 
 					$relation['related_relation'] = isset($relation['related_relation'])
 						? $relation['related_relation']
-						: Inflector::plural($this->_model);
+						: Inflector::pluralize($this->_model);
 				}
 				elseif ( ! isset($relation['model']))
 				{
@@ -571,7 +571,7 @@ abstract class Mango_Core implements Mango_Interface {
 					}
 					else
 					{
-						$relation['model'] = Inflector::singular($name);
+						$relation['model'] = Inflector::singularize($name);
 					}
 				}
 
@@ -661,7 +661,7 @@ abstract class Mango_Core implements Mango_Interface {
 		{
 			if ( $this->__isset($field_name))
 			{
-				if ( $clean && Arr::get($field_data,'local') === TRUE)
+				if ( $clean && Arr::element($field_data,'local') === TRUE)
 				{
 					// local fields are not stored in database
 					continue;
@@ -730,7 +730,7 @@ abstract class Mango_Core implements Mango_Interface {
 
 			$value = isset($this->_object[$name])
 				? $this->_object[$name]
-				: Arr::get($this->_clean, $name);
+				: Arr::element($this->_clean, $name);
 
 			// prepare prefix
 			$path = array_merge($prefix,array($name));
@@ -1116,12 +1116,12 @@ abstract class Mango_Core implements Mango_Interface {
 		if ( $subject !== Mango::CHECK_ONLY || count($local))
 		{
 			// validate local data
-			$array = Validation::factory($local)
+			$array = Kohana_Validation::factory($local)
 				->bind(':model', $this);
-
+			
 			// add validation rules
 			$array = $this->_check($array);
-
+			
 			if ( $subject === Mango::CHECK_ONLY)
 			{
 				foreach ( $this->_fields as $field_name => $field_data)
@@ -1133,6 +1133,37 @@ abstract class Mango_Core implements Mango_Interface {
 					}
 				}
 			}
+			
+			//$validation = Validation::factory(get_class($this));
+			//foreach ($this->_fields AS $field_name => $field_data) {
+			//	if ( $subject === Mango::CHECK_ONLY && ! $this->__isset($field_name))
+			//		continue;
+			//	
+			//	$field = $validation->add($field_name);
+			//	
+			//	if ( $field_data['type'] === 'email')
+			//	{
+			//		$field->add_rule('valid_email');
+			//	}
+			//
+			//	if ( Arr::element($field_data,'required'))
+			//	{
+			//		$field->add_rule('required');
+			//	}
+			//
+			//	if ( Arr::element($field_data,'unique'))
+			//	{
+			//		$field->add_rule($field_name, array($this,'_is_unique'),array(':validation', $name));
+			//	}
+			//	
+			//	foreach ( array('min_value','max_value','min_length','max_length') as $rule)
+			//	{
+			//		if ( Arr::element($field, $rule) !== NULL)
+			//		{
+			//			$data->rule($name, $rule, array(':value', $field[$rule]));
+			//		}
+			//	}
+			//}
 
 			if ( ! $array->check())
 			{
@@ -1180,7 +1211,7 @@ abstract class Mango_Core implements Mango_Interface {
 	 * @param  Validation  Validation object
 	 * @return array
 	 */
-	protected function _check(Validation $data)
+	protected function _check(Kohana_Validation $data)
 	{
 		foreach ($this->_fields as $name => $field)
 		{
@@ -1189,23 +1220,32 @@ abstract class Mango_Core implements Mango_Interface {
 				$data->rule($name, 'email');
 			}
 
-			if ( Arr::get($field,'required'))
+			if ( Arr::element($field,'required'))
 			{
 				$data->rule($name, 'required');
 			}
 
-			if ( Arr::get($field,'unique'))
+			if ( Arr::element($field,'unique'))
 			{
 				$data->rule($name, array($this,'_is_unique'),array(':validation', $name));
 			}
 
 			foreach ( array('min_value','max_value','min_length','max_length') as $rule)
 			{
-				if ( Arr::get($field, $rule) !== NULL)
+				if ( Arr::element($field, $rule) )
 				{
 					$data->rule($name, $rule, array(':value', $field[$rule]));
 				}
 			}
+			
+			if (isset($field['rules']) && is_array($field['rules']))
+			{
+				foreach ($field['rules'] AS $rule => $val)
+				{
+					$data->rule($name, $rule, array(':value', $val));
+				}
+			}
+			
 		}
 
 		return $data;
@@ -1285,7 +1325,7 @@ abstract class Mango_Core implements Mango_Interface {
 			case 'string':
 				$value = trim((string) $value);
 
-				if ( ! $clean && Arr::get($field, 'xss_clean') && ! empty($value))
+				if ( ! $clean && Arr::element($field, 'xss_clean') && ! empty($value))
 				{
 					$value = Security::xss_clean($value);
 				}
@@ -1307,7 +1347,7 @@ abstract class Mango_Core implements Mango_Interface {
 				}
 			break;
 			case 'has_many':
-				$value = new Mango_Set($value, $field['model'], Arr::get($field, 'unique', TRUE), $clean);
+				$value = new Mango_Set($value, $field['model'], Arr::element($field, 'unique', TRUE), $clean);
 
 				foreach ( $value as $model)
 				{
@@ -1318,10 +1358,10 @@ abstract class Mango_Core implements Mango_Interface {
 				$value = new Mango_Counter($value);
 			break;
 			case 'array':
-				$value = new Mango_Array($value, Arr::get($field, 'type_hint'), $clean);
+				$value = new Mango_Array($value, Arr::element($field, 'type_hint'), $clean);
 			break;
 			case 'set':
-				$value = new Mango_Set($value, Arr::get($field, 'type_hint'), Arr::get($field, 'unique', FALSE), $clean);
+				$value = new Mango_Set($value, Arr::element($field, 'type_hint'), Arr::element($field, 'unique', FALSE), $clean);
 			break;
 			case 'mixed':
 				$value = ! is_object($value)
@@ -1367,7 +1407,7 @@ abstract class Mango_Core implements Mango_Interface {
 
 			// Filters are defined as array($filter, $params)
 			$filter = $array[0];
-			$params = Arr::get($array, 1, array(':value'));
+			$params = Arr::element($array, 1, array(':value'));
 
 			foreach ($params as $key => $param)
 			{
@@ -1421,7 +1461,7 @@ abstract class Mango_Core implements Mango_Interface {
 			$name = (string) $model;
 		}
 
-		return $this->has_in_relation($model, Inflector::plural($name));
+		return $this->has_in_relation($model, Inflector::pluralize($name));
 	}
 
 	/**
@@ -1440,7 +1480,7 @@ abstract class Mango_Core implements Mango_Interface {
 			$name = (string) $model;
 		}
 
-		return $this->add_to_relation($model, Inflector::plural($name));
+		return $this->add_to_relation($model, Inflector::pluralize($name));
 	}
 
 	/**
@@ -1459,7 +1499,7 @@ abstract class Mango_Core implements Mango_Interface {
 			$name = (string) $model;
 		}
 
-		return $this->remove_from_relation($model, Inflector::plural($name));
+		return $this->remove_from_relation($model, Inflector::pluralize($name));
 	}
 
 	/**

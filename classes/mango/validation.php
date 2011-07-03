@@ -1,6 +1,6 @@
-<?php defined('SYSPATH') OR die('No direct access allowed.');
+<?php 
 
-class Mango_Validation extends Kohana_Validation {
+class Mango_Validation extends \Fuel\Core\Validation {
 
 	protected $_empty_rules = array('not_empty', 'matches', 'required');
 

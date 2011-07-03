@@ -40,7 +40,7 @@ class MangoDB {
 			if ($config === NULL)
 			{
 				// Load the configuration for this database
-				$config = Kohana::config('mangoDB')->$name;
+				$config = Config::fetch('mangoDB.'.$name);
 			}
 
 			new MangoDB($name,$config);
@@ -129,13 +129,12 @@ class MangoDB {
 		catch ( MongoConnectionException $e)
 		{
 			// Unable to connect to the database server
-			throw new Kohana_Exception('Unable to connect to MongoDB server at :hostnames',
-				array(':hostnames' => $e->getMessage()));
+			throw new Fuel_Exception('Unable to connect to MongoDB server at '.$e->getMessage());
 		}
 
 		if ( ! isset($database))
 		{
-			throw new Kohana_Exception('No database specified in MangoDB Config');
+			throw new Fuel_Exception('No database specified in MangoDB Config');
 		}
 
 		$this->_db = $this->_connection->selectDB($database);

@@ -1,4 +1,4 @@
-<?php defined('SYSPATH') OR die('No direct access allowed.');
+<?php 
 
 class Mango_Iterator implements Iterator, Countable {
 
